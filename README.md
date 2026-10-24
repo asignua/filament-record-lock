@@ -2,7 +2,7 @@
 
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
-<img class="filament-hidden" src="art/cover.jpg" alt="Filament Record Lock">
+<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-record-lock/main/art/cover.jpg" alt="Filament Record Lock">
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/asignua/filament-record-lock/tests.yml?branch=main&label=tests)](https://github.com/asignua/filament-record-lock/actions/workflows/tests.yml)
 
@@ -26,9 +26,13 @@ plugin methods, so a project moves over by swapping a namespace (see [Migrating 
 
 ## Screenshots
 
-![The blocking notice](art/locked-notice.png)
-![The lock column and the record actions](art/lock-column.png)
-![The Record locks manager](art/manager.png)
+![The blocking notice](https://raw.githubusercontent.com/asignua/filament-record-lock/main/art/locked-notice.jpg)
+
+Dark mode follows the panel:
+
+![The blocking notice in dark mode](https://raw.githubusercontent.com/asignua/filament-record-lock/main/art/locked-notice-dark.jpg)
+![The lock column and the record actions](https://raw.githubusercontent.com/asignua/filament-record-lock/main/art/lock-column.jpg)
+![The Record locks manager](https://raw.githubusercontent.com/asignua/filament-record-lock/main/art/manager.jpg)
 
 ## Requirements
 

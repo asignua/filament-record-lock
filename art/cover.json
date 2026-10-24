@@ -1,0 +1,16 @@
+{
+    "shots": [],
+    "covers": [
+        {
+            "html": "../../scripts/art/cover.html",
+            "out": "cover.jpg",
+            "query": {
+                "title": "One editor at a time",
+                "lead": "Locks a record while someone edits it in Filament 5: others see who holds it, can open it read-only, and only allowed users can take it over.",
+                "chips": "Heartbeat + release on leave|Takeover behind a gate|Lock column & manager|Successor of resource-lock",
+                "shot": "../../filament-record-lock/art/cover-source.jpg",
+                "crop": "640,150,1600,1000"
+            }
+        }
+    ]
+}
