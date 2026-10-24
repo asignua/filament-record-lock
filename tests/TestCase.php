@@ -34,6 +34,14 @@ abstract class TestCase extends Orchestra
 
         $this->actingAs(User::factory()->create());
         Filament::setCurrentPanel('admin');
+
+        // Plugin::boot() runs when a panel is served; a test never goes through that middleware.
+        Filament::getCurrentPanel()?->boot();
+    }
+
+    protected function userNamed(string $name): User
+    {
+        return User::factory()->create(['name' => $name, 'email' => strtolower($name).'@example.com']);
     }
 
     protected function getPackageProviders($app): array

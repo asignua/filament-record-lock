@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentRecordLock;
 
+use Asignua\FilamentRecordLock\Commands\PruneCommand;
+use Asignua\FilamentRecordLock\Support\RecordLocker;
+use Illuminate\Console\Scheduling\Schedule;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -13,13 +16,30 @@ class RecordLockServiceProvider extends PackageServiceProvider
 
     public function configurePackage(Package $package): void
     {
-        // Translations live in resources/lang/<locale>/filament-record-lock.php and are read as
-        // `__('filament-record-lock::filament-record-lock.<key>')`. Publish tag: `filament-record-lock-translations`.
+        // Translations: `__('filament-record-lock::filament-record-lock.<key>')`, publish tag `filament-record-lock-translations`.
         $package->name(static::$name)
+            ->hasConfigFile()
             ->hasTranslations()
-            ->hasViews();
+            ->hasViews()
+            ->hasMigration('create_record_locks_table')
+            ->hasCommand(PruneCommand::class);
+    }
 
-        // Add a config file only when the plugin really has options: create config/filament-record-lock.php and
-        // chain `->hasConfigFile()` here (publish tag `filament-record-lock-config`). Prefer fluent setters on the Plugin.
+    public function packageRegistered(): void
+    {
+        $this->app->singleton(RecordLocker::class);
+    }
+
+    public function packageBooted(): void
+    {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            if (!(bool) config('filament-record-lock.schedule.enabled', true)) {
+                return;
+            }
+
+            $cron = config('filament-record-lock.schedule.cron', '*/10 * * * *');
+
+            $schedule->command('record-lock:prune')->cron(is_string($cron) ? $cron : '*/10 * * * *');
+        });
     }
 }

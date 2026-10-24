@@ -17,6 +17,8 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Workbench\App\Filament\Resources\Articles\ArticleResource;
+use Workbench\App\Filament\Resources\Notes\NoteResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -27,7 +29,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->plugin(RecordLockPlugin::make())
+            ->resources([ArticleResource::class, NoteResource::class])
+            ->plugin(RecordLockPlugin::make()->navigationGroup('System'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

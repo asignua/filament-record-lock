@@ -22,6 +22,22 @@ class TranslationsTest extends TestCase
         }
     }
 
+    public function test_every_locale_keeps_the_placeholders_of_english(): void
+    {
+        $english = Arr::dot(require __DIR__.'/../../resources/lang/en/filament-record-lock.php');
+
+        foreach (self::LOCALES as $locale) {
+            $strings = Arr::dot(require __DIR__.'/../../resources/lang/'.$locale.'/filament-record-lock.php');
+
+            foreach ($english as $key => $text) {
+                preg_match_all('/:[a-z]+/', (string) $text, $expected);
+                preg_match_all('/:[a-z]+/', (string) $strings[$key], $actual);
+
+                $this->assertEqualsCanonicalizing($expected[0], $actual[0], "[{$locale}] {$key}");
+            }
+        }
+    }
+
     /**
      * @return list<string>
      */

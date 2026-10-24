@@ -25,6 +25,6 @@ class SmokeTest extends TestCase
 
     public function test_the_translations_are_loaded(): void
     {
-        $this->assertSame('Sample', __('filament-record-lock::filament-record-lock.sample'));
+        $this->assertSame('Back to list', __('filament-record-lock::filament-record-lock.modal.back'));
     }
 }
