@@ -84,6 +84,8 @@ class RecordLockPlugin implements Plugin
 
     protected ?Closure $ownerUsing = null;
 
+    protected ?Closure $managerScope = null;
+
     protected ?bool $usesPollingToDetectPresence = null;
 
     protected ?int $presencePollingInterval = null;
@@ -420,6 +422,40 @@ class RecordLockPlugin implements Plugin
         $this->managerEnabled = $enabled;
 
         return $this;
+    }
+
+    /**
+     * A tenant panel: locks are not tied to a tenant, so listing them all would leak other tenants' records (and
+     * "Release all" would delete theirs). The manager stays shut there until the host narrows the query.
+     *
+     *     ->scopeManagerQuery(fn (Builder $query) => $query->whereIn('user_id', Filament::getTenant()->users()->pluck('id')->map(fn ($id) => (string) $id)))
+     */
+    public function scopeManagerQuery(?Closure $callback): static
+    {
+        $this->managerScope = $callback;
+
+        return $this;
+    }
+
+    public function isManagerAvailable(?Panel $panel): bool
+    {
+        return $panel === null || !$panel->hasTenancy() || $this->managerScope !== null;
+    }
+
+    /**
+     * @template TModel of Model
+     *
+     * @param \Illuminate\Database\Eloquent\Builder<TModel> $query
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<TModel>
+     */
+    public function applyManagerScope($query)
+    {
+        if ($this->managerScope !== null) {
+            ($this->managerScope)($query);
+        }
+
+        return $query;
     }
 
     public function isManagerEnabled(): bool

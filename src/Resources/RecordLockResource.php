@@ -28,6 +28,9 @@ use Illuminate\Support\Str;
  */
 class RecordLockResource extends Resource
 {
+    /** The manager lists locks of every tenant, so the stock tenant scoping (which needs an ownership relation) is off. */
+    protected static bool $isScopedToTenant = false;
+
     public static function getModel(): string
     {
         return RecordLockPlugin::resolve()->getLockModel();
@@ -40,7 +43,9 @@ class RecordLockResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return static::isPluginActive() && RecordLockPlugin::resolve()->canAccessManager();
+        return static::isPluginActive()
+            && RecordLockPlugin::resolve()->isManagerAvailable(Filament::getCurrentPanel())
+            && RecordLockPlugin::resolve()->canAccessManager();
     }
 
     public static function canCreate(): bool
@@ -112,7 +117,10 @@ class RecordLockResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['user', 'lockable']);
+        /** @var Builder<Model> $query */
+        $query = parent::getEloquentQuery()->with('user');
+
+        return RecordLockPlugin::resolve()->applyManagerScope($query);
     }
 
     public static function table(Table $table): Table
@@ -190,7 +198,7 @@ class RecordLockResource extends Resource
                     return;
                 }
 
-                static::getModel()::query()->delete();
+                static::getEloquentQuery()->delete();
 
                 Notification::make()
                     ->success()
@@ -210,7 +218,7 @@ class RecordLockResource extends Resource
 
     protected static function recordLabel(RecordLock $lock): string
     {
-        $lockable = $lock->lockable;
+        $lockable = $lock->lockableOrNull();
 
         if ($lockable === null) {
             return '#'.$lock->lockable_id;
@@ -223,7 +231,7 @@ class RecordLockResource extends Resource
 
     protected static function recordUrl(RecordLock $lock): ?string
     {
-        $lockable = $lock->lockable;
+        $lockable = $lock->lockableOrNull();
 
         if ($lockable === null) {
             return null;

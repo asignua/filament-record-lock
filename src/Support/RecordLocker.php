@@ -81,25 +81,22 @@ class RecordLocker
      * Take the lock if it is free, expired, or already the user's (then it is only extended). Returns the lock
      * when the user holds it afterwards, null when somebody else does.
      *
-     * `$holder` identifies the page instance; pass it when a page is opened, and null from a heartbeat so a
-     * renewal never steals the instance from a newer tab of the same user.
+     * `$holder` identifies the page instance. A page passes it when it OPENS (`$steal` true: the newest tab owns
+     * the release token) and from a heartbeat with `$steal` false: then it is stored only when the row is created
+     * or has no token yet, so a renewal never takes the token from a newer tab but a re-created row is still
+     * releasable by the page that made it.
      */
-    public function acquire(Model $record, Authenticatable $user, ?string $holder = null): ?RecordLock
+    public function acquire(Model $record, Authenticatable $user, ?string $holder = null, bool $steal = true): ?RecordLock
     {
         $userKey = LockUsers::key($user);
         $now = now();
         $expires = $now->copy()->addSeconds(RecordLockPlugin::resolve()->getLockTimeout());
-        $model = $this->lockModel();
 
-        $query = fn () => $model::query()
-            ->where('lockable_type', $record->getMorphClass())
-            ->where('lockable_id', (string) $record->getKey());
-
-        $lock = $query()->first();
+        $lock = $this->find($record);
 
         if ($lock === null) {
             try {
-                return $model::query()->create([
+                return $this->lockModel()::query()->create([
                     'lockable_type' => $record->getMorphClass(),
                     'lockable_id' => (string) $record->getKey(),
                     'user_id' => $userKey,
@@ -109,7 +106,7 @@ class RecordLocker
                 ]);
             } catch (UniqueConstraintViolationException) {
                 // Somebody inserted between our SELECT and INSERT: decide with the conditional UPDATE below.
-                $lock = $query()->first();
+                $lock = $this->find($record);
             }
 
             if ($lock === null) {
@@ -117,26 +114,39 @@ class RecordLocker
             }
         }
 
-        $takingOver = $lock->user_id !== $userKey;
         $values = ['expires_at' => $expires, 'updated_at' => $now];
 
-        if ($takingOver) {
+        if ($lock->user_id !== $userKey) {
             $values += ['user_id' => $userKey, 'holder' => $holder, 'locked_at' => $now];
-        } elseif ($holder !== null) {
+        } elseif ($holder !== null && ($steal || $lock->holder === null)) {
             $values['holder'] = $holder;
         }
 
-        $affected = $query()
-            ->where(function ($q) use ($userKey, $now): void {
-                $q->where('user_id', $userKey)
-                    ->orWhereNull('expires_at')
-                    ->orWhere('expires_at', '<=', $now);
-            })
-            ->update($values);
+        // The affected-rows count is NOT trusted: MySQL reports CHANGED rows, so a renewal in the same second
+        // (identical values) says 0 for the holder. The row is read back and judged by what it says.
+        $this->conditionalUpdate(
+            $this->lockModel()::query()
+                ->whereKey($lock->getKey())
+                ->where(function ($q) use ($userKey, $now): void {
+                    $q->where('user_id', $userKey)
+                        ->orWhereNull('expires_at')
+                        ->orWhere('expires_at', '<=', $now);
+                }),
+            $values,
+        );
 
-        $fresh = $query()->first();
+        $fresh = $this->find($record);
 
-        return $affected > 0 && $fresh !== null && $fresh->user_id === $userKey ? $fresh : null;
+        return $fresh !== null && $fresh->user_id === $userKey && $fresh->isActive() ? $fresh : null;
+    }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder<RecordLock> $query
+     * @param array<string, mixed>                              $values
+     */
+    protected function conditionalUpdate($query, array $values): int
+    {
+        return $query->update($values);
     }
 
     /**
@@ -168,27 +178,49 @@ class RecordLocker
     }
 
     /**
-     * Replace the holder with `$user`, whoever it was. Authorization is the caller's job
+     * Replace the holder with `$user`, whoever it was, in ONE statement (no window between "release" and
+     * "acquire" in which the old holder's heartbeat could re-insert). Authorization is the caller's job
      * ({@see RecordLockPlugin::canUnlock()}).
      */
     public function takeOver(Model $record, Authenticatable $user, ?string $holder = null): RecordLock
     {
+        $userKey = LockUsers::key($user);
         $previous = $this->active($record);
         $previousUser = $previous?->user;
 
-        $this->forceRelease($record);
-        $lock = $this->acquire($record, $user, $holder);
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $now = now();
+            $existing = $this->find($record);
 
-        if ($lock === null) {
-            // Lost a race against a third user between the release and the insert: report it as a plain failure.
-            throw new \RuntimeException('Could not take the record lock over.');
+            if ($existing !== null) {
+                $this->conditionalUpdate(
+                    $this->lockModel()::query()->whereKey($existing->getKey()),
+                    [
+                        'user_id' => $userKey,
+                        'holder' => $holder,
+                        'locked_at' => $now,
+                        'expires_at' => $now->copy()->addSeconds(RecordLockPlugin::resolve()->getLockTimeout()),
+                        'updated_at' => $now,
+                    ],
+                );
+            }
+
+            // Missing row (nobody held it, or it vanished meanwhile): the insert path of acquire().
+            $lock = $this->find($record);
+            $lock = $lock !== null && $lock->user_id === $userKey && $lock->isActive()
+                ? $lock
+                : ($lock === null ? $this->acquire($record, $user, $holder) : null);
+
+            if ($lock !== null) {
+                if ($previous !== null && $previous->user_id !== $userKey) {
+                    event(new RecordLockTakenOver($record, $previousUser, $user));
+                }
+
+                return $lock;
+            }
         }
 
-        if ($previous !== null && $previous->user_id !== LockUsers::key($user)) {
-            event(new RecordLockTakenOver($record, $previousUser, $user));
-        }
-
-        return $lock;
+        throw new \RuntimeException('Could not take the record lock over.');
     }
 
     public function pruneExpired(): int

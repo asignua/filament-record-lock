@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 
 /**
  * The lock logic that the edit-page trait and the modal-action trait share. It keeps its whole state in public
@@ -22,31 +23,42 @@ use Illuminate\Support\Str;
 trait UsesLocks
 {
     /** The blocking notice is shown. */
+    #[Locked]
     public bool $recordLockBlocked = false;
 
     /** Why: `locked` (somebody holds it), `taken_over` (it was taken from us), `stale` (changed while our lock had lapsed). */
+    #[Locked]
     public ?string $recordLockReason = null;
 
+    #[Locked]
     public ?string $recordLockOwner = null;
 
+    #[Locked]
     public ?string $recordLockSince = null;
 
     /** The observer (heartbeat, release on leave) is on for the current record. */
+    #[Locked]
     public bool $recordLockActive = false;
 
     /** What the notice offers; filled when the page takes (or fails to take) the lock. */
+    #[Locked]
     public bool $recordLockCanUnlock = false;
 
+    #[Locked]
     public ?string $recordLockViewUrl = null;
 
+    #[Locked]
     public ?string $recordLockBackUrl = null;
 
     /** The id of OUR lock row and the token of this page instance: both go to the release-on-leave beacon. */
+    #[Locked]
     public int|string|null $recordLockId = null;
 
+    #[Locked]
     public ?string $recordLockHolder = null;
 
     /** The record's `updated_at` as it was when the form was loaded; detects a change made while our lock had lapsed. */
+    #[Locked]
     public ?string $recordLockVersion = null;
 
     /**
@@ -205,7 +217,7 @@ trait UsesLocks
 
         $locker = $this->recordLockLocker();
         $wasHeld = $locker->heldBy($record, $user);
-        $lock = $locker->acquire($record, $user);
+        $lock = $locker->acquire($record, $user, $this->recordLockHolder, steal: false);
 
         if ($lock === null) {
             $this->blockRecordLock('taken_over', $record);

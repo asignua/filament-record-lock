@@ -43,6 +43,32 @@ trait UsesResourceLock
     }
 
     /**
+     * Actions that may run while the lock is lost (read-only ones); everything else - Delete, Replicate, your own
+     * header actions, actions inside the form - is refused like a save. Relation managers are separate Livewire
+     * components and are NOT covered: guard their writes with the model policy.
+     *
+     * @return list<string>
+     */
+    protected function recordLockAllowedActions(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    public function callMountedAction(array $arguments = []): mixed
+    {
+        $name = $this->getMountedAction()?->getName();
+
+        if (!in_array($name, $this->recordLockAllowedActions(), true) && !$this->recordLockPermitsSave()) {
+            return null;
+        }
+
+        return parent::callMountedAction($arguments);
+    }
+
+    /**
      * A save is refused for a user who no longer holds the lock. When it goes through and the page leaves for
      * another URL, the lock is released right away instead of waiting for the leave beacon.
      */
@@ -53,6 +79,9 @@ trait UsesResourceLock
         }
 
         parent::save($shouldRedirect, $shouldSendSavedNotification);
+
+        // Our own write moved `updated_at`; remember it, or a lapse of the lock would call our save "someone else's".
+        $this->recordLockVersion = $this->recordLockVersionOf($this->getRecord());
 
         if (store($this)->has('redirect')) {
             $this->releaseRecordLock();
@@ -69,5 +98,7 @@ trait UsesResourceLock
         }
 
         parent::saveFormComponentOnly($component);
+
+        $this->recordLockVersion = $this->recordLockVersionOf($this->getRecord());
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 /**
  * @property int $id
@@ -62,6 +63,21 @@ class RecordLock extends Model
     public function lockable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * The locked record, or null when its type no longer exists (a removed model, a renamed morph alias) or
+     * the row is gone. `lockable` itself would throw for an unknown class.
+     */
+    public function lockableOrNull(): ?Model
+    {
+        $class = Relation::getMorphedModel($this->lockable_type) ?? $this->lockable_type;
+
+        if (!class_exists($class) || !is_a($class, Model::class, true)) {
+            return null;
+        }
+
+        return $this->lockable;
     }
 
     public function isExpired(): bool

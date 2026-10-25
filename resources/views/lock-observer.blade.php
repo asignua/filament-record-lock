@@ -72,7 +72,10 @@
     @if ($plugin->shouldUsePollingToDetectPresence())
         {{-- Only while a record is locked by this page; a list page that merely CAN open a locked modal stays quiet. --}}
         <template x-if="$wire.recordLockActive">
+            {{-- Pinned to the viewport: wire:poll.visible would pause whenever the page is scrolled past PAGE_START. --}}
             <div
+                style="position: fixed; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; opacity: 0"
+                aria-hidden="true"
                 wire:poll{{ $plugin->shouldUsePollingKeepAlive() ? '.keep-alive' : '' }}{{ $plugin->shouldUsePollingVisible() ? '.visible' : '' }}.{{ $plugin->getPresencePollingInterval() }}s="recordLockHeartbeat"
             ></div>
         </template>

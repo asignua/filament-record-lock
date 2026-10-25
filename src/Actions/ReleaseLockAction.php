@@ -53,7 +53,7 @@ class ReleaseLockAction extends Action
         $plugin = RecordLockPlugin::resolve();
 
         if ($row instanceof RecordLock) {
-            return $row->isActive() && $plugin->canUnlock($row->lockable);
+            return $row->isActive() && $plugin->canUnlock($row->lockableOrNull());
         }
 
         return app(RecordLocker::class)->activeForDisplay($row) !== null && $plugin->canUnlock($row);

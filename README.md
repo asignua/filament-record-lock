@@ -205,6 +205,13 @@ win over the gate. The server checks the permission again when "Unlock and edit"
 - **Background tabs.** Livewire slows polling in hidden tabs; the lock may expire and be taken while the user is on another
   tab. That is the intended meaning of "idle". Use `pollingKeepAlive()` if you want to hold a record from a background tab.
 - **Eager-load for the column.** `RecordLockColumn` asks the database per row unless the query has `->withRecordLock()`.
+- **Actions are guarded too.** On an Edit page every mounted action (Delete, Replicate, your own, actions inside the form)
+  is refused like a save when the lock is lost; list read-only ones in `recordLockAllowedActions()`. **Relation managers
+  are separate Livewire components and are not covered** - protect their writes with the model policy.
+- **Tenant panels.** Locks are not tied to a tenant, so the "Record locks" manager stays shut on a panel with tenancy until you
+  narrow it: `->scopeManagerQuery(fn (Builder $query) => $query->whereIn('user_id', ...))` (also applied to "Release all").
+- **Lock state is `#[Locked]`** on the page; the browser cannot flip it. Keys are bound as strings when eager loading
+  (`withRecordLock()` works on PostgreSQL with integer keys).
 - **Your own `mount()` / `save()`** on a page that uses the trait must call `parent::mount()` / `parent::save()`.
 - **Custom pages that are not resource pages** can use `UsesLocks` yourself: implement `recordLockRecord()` and
   `recordLockRefresh()`, call `initializeRecordLock()` when the record is opened.

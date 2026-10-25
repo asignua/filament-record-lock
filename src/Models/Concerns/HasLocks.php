@@ -8,6 +8,7 @@ use Asignua\FilamentRecordLock\Models\RecordLock;
 use Asignua\FilamentRecordLock\RecordLockPlugin;
 use Asignua\FilamentRecordLock\Support\LockUsers;
 use Asignua\FilamentRecordLock\Support\RecordLocker;
+use Asignua\FilamentRecordLock\Support\StringKeyMorphOne;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
@@ -25,8 +26,12 @@ trait HasLocks
      */
     public function recordLock(): MorphOne
     {
+        $instance = $this->newRelatedInstance(RecordLockPlugin::resolve()->getLockModel());
+        [$type, $id] = $this->getMorphs('lockable', null, null);
+        $table = $instance->getTable();
+
         /** @var MorphOne<RecordLock, $this> */
-        return $this->morphOne(RecordLockPlugin::resolve()->getLockModel(), 'lockable');
+        return new StringKeyMorphOne($instance->newQuery(), $this, $table.'.'.$type, $table.'.'.$id, $this->getKeyName());
     }
 
     /**
