@@ -2,8 +2,7 @@
 
 All notable changes to `asignua/filament-record-lock` are documented here.
 
-## Unreleased
-
+## v1.0.0 - 2026-10-25
 - Pessimistic record locking for Filament 5: `HasLocks` model trait, `UsesResourceLock` for Edit pages and
   `UsesSimpleResourceLock` for modal edits, a heartbeat that renews the lock, release on leave through
   `navigator.sendBeacon`, a blocking notice with "Back to list", "View read-only" and a gated "Unlock and edit".
