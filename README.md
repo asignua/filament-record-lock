@@ -304,6 +304,15 @@ vendor/bin/pint --test
 
 See [CHANGELOG.md](CHANGELOG.md).
 
+## More plugins by asign
+
+- [Kanban](https://filamentphp.com/plugins/asign-kanban) — drag-and-drop boards for Eloquent models
+- [Kanban Pro](https://filamentphp.com/plugins/asign-kanban-pro) — swimlanes, WIP limits and workflow rules for boards
+- [Activity Log Plus](https://filamentphp.com/plugins/asign-activity-log-plus) — audit trail and history for models
+- [Themes](https://filamentphp.com/plugins/asign-themes) — per-user and per-panel colour themes
+
+All plugins: <https://filamentphp.com/plugins?q=asign>
+
 ## License
 
 The MIT License (MIT). See [LICENSE.md](LICENSE.md).
