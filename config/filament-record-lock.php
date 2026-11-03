@@ -94,9 +94,9 @@ return [
         'connection' => env('RECORD_LOCK_BROADCAST_CONNECTION'),
         'echo' => env('RECORD_LOCK_ECHO', 'plugin'),
         'client' => [
-            'host' => env('RECORD_LOCK_WS_HOST'),
-            'port' => env('RECORD_LOCK_WS_PORT'),
-            'scheme' => env('RECORD_LOCK_WS_SCHEME'),
+            'host' => env('RECORD_LOCK_WS_HOST', env('VITE_REVERB_HOST')),
+            'port' => env('RECORD_LOCK_WS_PORT', env('VITE_REVERB_PORT')),
+            'scheme' => env('RECORD_LOCK_WS_SCHEME', env('VITE_REVERB_SCHEME')),
         ],
         // Register /broadcasting/auth when the app has not.
         'register_auth_route' => true,

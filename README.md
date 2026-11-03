@@ -252,6 +252,16 @@ RECORD_LOCK_WS_PORT=8080             # empty = 443 on https, 80 on http
 RECORD_LOCK_WS_SCHEME=https          # empty = the page's protocol
 ```
 
+**Where the browser connects (shared by all asign plugins).** Each field (host, port, scheme) is resolved on its own, first set value wins:
+
+1. `RECORD_LOCK_WS_HOST` / `_PORT` / `_SCHEME` (this plugin only, the lines above);
+2. Laravel's browser-side variables `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` (written by `php artisan install:broadcasting --reverb`);
+3. Filament's own Echo config, `filament.broadcasting.echo` (`wsHost`, `wsPort` / `wssPort`, `forceTLS`);
+4. the page's own host, protocol and default port.
+
+Whichever plugin renders its hook first creates `window.Echo` for the whole page, so a plugin without its own address must not
+fall back to `localhost`: set `VITE_REVERB_*` once and every asign plugin on the site (chat, kanban, record lock) connects to the same place.
+
 - **Local, no Docker:** `reverb:start` on 8080 -> `RECORD_LOCK_WS_PORT=8080`.
 - **Docker / Sail:** PHP publishes to the service (`REVERB_HOST=reverb`), the browser to the published port.
 - **Production behind nginx:** proxy the websocket on the same host and leave the three variables empty:
