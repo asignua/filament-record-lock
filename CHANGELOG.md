@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-record-lock` are documented here.
 
-## v1.1.0 - unreleased
+## v1.1.0 - 2026-11-03
 - Optional real-time reaction (`realtime.enabled` / `RECORD_LOCK_REALTIME`, auto-on for reverb / pusher / ably): a private
   channel per record, a `RecordLockChanged` broadcast when a lock is released or taken over, and an Echo subscription
   in the lock notice (also for modal edits) that runs the existing heartbeat at once. The heartbeat is unchanged; disabled means no behaviour
