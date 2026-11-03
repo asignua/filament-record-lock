@@ -63,6 +63,15 @@ trait UsesLocks
     public ?string $recordLockVersion = null;
 
     /**
+     * Real time (optional): the private channel of the locked record, read by the observer view, which subscribes with
+     * Echo and calls {@see self::recordLockHeartbeat()} on a push. A property rather than a Livewire `getListeners()`
+     * entry: Livewire registers listeners only when the component is mounted, and a modal-edit page has no record
+     * (and no lock) at mount. Null = real time off or nothing locked.
+     */
+    #[Locked]
+    public ?string $recordLockChannel = null;
+
+    /**
      * The record this page locks right now (null = nothing to lock).
      */
     abstract protected function recordLockRecord(): ?Model;
@@ -80,27 +89,6 @@ trait UsesLocks
     public function getRenderHookScopes(): array
     {
         return [...parent::getRenderHookScopes(), RecordLockPlugin::HOOK_SCOPE];
-    }
-
-    /**
-     * Real time (optional): when the lock of the open record is released or taken over, the server pushes an event and
-     * the page runs the heartbeat at once - all takeover / reload logic stays in that one method.
-     *
-     * @return array<string, string>
-     */
-    protected function getListeners(): array
-    {
-        $listeners = parent::getListeners();
-
-        if ($this->recordLockActive && Realtime::enabled()) {
-            $record = $this->recordLockRecord();
-
-            if ($record !== null) {
-                $listeners[Realtime::listener($record)] = 'recordLockHeartbeat';
-            }
-        }
-
-        return $listeners;
     }
 
     protected function recordLockLocker(): RecordLocker
@@ -154,6 +142,7 @@ trait UsesLocks
         }
 
         $this->recordLockActive = true;
+        $this->recordLockChannel = Realtime::enabled() ? Realtime::channelOf($record) : null;
         $this->recordLockHolder = Str::random(32);
         $this->recordLockBackUrl = $this->recordLockReturnUrl();
         $this->recordLockViewUrl = $this->resolveRecordLockViewUrl();
@@ -180,6 +169,7 @@ trait UsesLocks
     {
         $this->releaseRecordLock();
         $this->recordLockActive = false;
+        $this->recordLockChannel = null;
         $this->recordLockBlocked = false;
         $this->recordLockReason = null;
         $this->recordLockId = null;

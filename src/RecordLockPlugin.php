@@ -7,6 +7,7 @@ namespace Asignua\FilamentRecordLock;
 use Asignua\FilamentRecordLock\Models\RecordLock;
 use Asignua\FilamentRecordLock\Resources\RecordLockResource;
 use Asignua\FilamentRecordLock\Support\LockUsers;
+use Asignua\FilamentRecordLock\Support\Realtime;
 use Closure;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament;
@@ -146,6 +147,12 @@ class RecordLockPlugin implements Plugin
             PanelsRenderHook::PAGE_START,
             fn (): string => view($observerView)->render(),
             scopes: [static::HOOK_SCOPE],
+        );
+
+        // Echo for real time (only when `realtime.echo` = 'plugin'); the view renders nothing otherwise.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            fn (): string => Realtime::bringsEcho() ? view('filament-record-lock::hooks.echo')->render() : '',
         );
     }
 

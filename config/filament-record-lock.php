@@ -83,10 +83,21 @@ return [
      * socket so it reacts at once instead of at its next heartbeat. The heartbeat itself stays (it renews the lock).
      * `enabled`: true / false, or null = on when `broadcasting.default` is reverb, pusher or ably.
      * `connection`: a broadcasting connection other than the default one.
+     * `echo`: who puts Laravel Echo into the browser - 'plugin' (the plugin does, with Filament's bundled Echo; only
+     *   initialised if no other asign plugin or the app did it first), 'filament' (Filament's own
+     *   `filament.broadcasting.echo`), 'host' (your app already loads window.Echo).
+     * `client`: where the BROWSER connects when it differs from where PHP publishes (PHP -> reverb:8080 in Docker,
+     *   the browser -> your public host behind nginx). Empty = the page's own host, protocol and default port.
      */
     'realtime' => [
         'enabled' => env('RECORD_LOCK_REALTIME'),
         'connection' => env('RECORD_LOCK_BROADCAST_CONNECTION'),
+        'echo' => env('RECORD_LOCK_ECHO', 'plugin'),
+        'client' => [
+            'host' => env('RECORD_LOCK_WS_HOST'),
+            'port' => env('RECORD_LOCK_WS_PORT'),
+            'scheme' => env('RECORD_LOCK_WS_SCHEME'),
+        ],
         // Register /broadcasting/auth when the app has not.
         'register_auth_route' => true,
     ],

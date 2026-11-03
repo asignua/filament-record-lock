@@ -28,6 +28,13 @@ final class Realtime
 
     public const string CHANNEL = 'filament-record-lock.';
 
+    /** Who puts Laravel Echo into the browser (same keys and semantics as filament-chat / filament-kanban). */
+    public const string ECHO_PLUGIN = 'plugin';
+
+    public const string ECHO_FILAMENT = 'filament';
+
+    public const string ECHO_HOST = 'host';
+
     /**
      * `realtime.enabled`: true/false decides; null (unset) = on when the broadcaster delivers to a browser.
      */
@@ -70,6 +77,58 @@ final class Realtime
         return is_string($driver) && $driver !== '' ? $driver : $connection;
     }
 
+    public static function echoSource(): string
+    {
+        $source = config('filament-record-lock.realtime.echo', self::ECHO_PLUGIN);
+
+        return in_array($source, [self::ECHO_PLUGIN, self::ECHO_FILAMENT, self::ECHO_HOST], true) ? $source : self::ECHO_PLUGIN;
+    }
+
+    /**
+     * Echo options for the browser when the plugin brings Echo itself.
+     *
+     * @return array{broadcaster: string, key: string, cluster: string|null, host: string|null, port: int|null, scheme: string|null}
+     */
+    public static function echoOptions(): array
+    {
+        $connection = self::connection() ?? (string) config('broadcasting.default');
+        $settings = config('broadcasting.connections.'.$connection);
+        $settings = is_array($settings) ? $settings : [];
+        $options = is_array($settings['options'] ?? null) ? $settings['options'] : [];
+        $client = config('filament-record-lock.realtime.client');
+        $client = is_array($client) ? $client : [];
+        $port = $client['port'] ?? null;
+
+        return [
+            'broadcaster' => (self::broadcaster() ?? 'reverb') === 'reverb' ? 'reverb' : 'pusher',
+            'key' => (string) ($settings['key'] ?? ''),
+            'cluster' => self::nonEmptyString($options['cluster'] ?? null),
+            'host' => self::nonEmptyString($client['host'] ?? null),
+            'port' => is_numeric($port) ? (int) $port : null,
+            'scheme' => self::nonEmptyString($client['scheme'] ?? null),
+        ];
+    }
+
+    /**
+     * Should the `hooks.echo` view put Echo on the page? Real time on, the plugin brings Echo, and the current panel
+     * has this plugin.
+     */
+    public static function bringsEcho(): bool
+    {
+        if (!self::enabled() || self::echoSource() !== self::ECHO_PLUGIN) {
+            return false;
+        }
+
+        $panel = Filament::getCurrentPanel();
+
+        return $panel !== null && $panel->hasPlugin(RecordLockPlugin::ID);
+    }
+
+    private static function nonEmptyString(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
     public static function registerAuthRoute(): bool
     {
         return (bool) config('filament-record-lock.realtime.register_auth_route', true);
@@ -101,9 +160,12 @@ final class Realtime
         return self::CHANNEL.self::encode($type).'.'.self::encode($key);
     }
 
-    public static function listener(Model $record): string
+    /**
+     * The private channel the page subscribes to from the observer view (Alpine + Echo), see lock-observer.blade.php.
+     */
+    public static function channelOf(Model $record): string
     {
-        return 'echo-private:'.self::channelFor($record->getMorphClass(), (string) $record->getKey()).',.'.RecordLockChanged::NAME;
+        return self::channelFor($record->getMorphClass(), (string) $record->getKey());
     }
 
     /**

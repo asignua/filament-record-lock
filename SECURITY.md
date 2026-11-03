@@ -17,3 +17,11 @@ Report it privately through GitHub: open the
 
 You can expect an acknowledgement within 3 working days and a status update within 7 days.
 Once a fix is released, the advisory is published and you are credited unless you prefer otherwise.
+
+## Real-time channel (optional)
+
+With `realtime.enabled`, each record has a private broadcasting channel (`filament-record-lock.{type}.{key}`). Channel
+authorisation fails closed: the model must use `HasLocks`, the record must exist, and the user must pass
+`Resource::canEdit()` of the panel that has the plugin (or the model's `update` policy when no resource edits it);
+unknown types and missing records are refused. Events carry identifiers only (type, key, reason, holder id) - the page
+re-reads the real state from the server, so a spoofed or replayed message can at worst trigger an extra heartbeat.

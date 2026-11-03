@@ -1,5 +1,6 @@
 @php
     use Asignua\FilamentRecordLock\RecordLockPlugin;
+    use Asignua\FilamentRecordLock\Events\RecordLockChanged;
     use Illuminate\Support\HtmlString;
 
     $plugin = RecordLockPlugin::resolve();
@@ -22,12 +23,56 @@
         token: @js(csrf_token()),
         texts: @js($texts),
         leave: null,
+        channel: null,
+        onEcho: null,
+        // Real time (optional): `$wire.recordLockChannel` is set only while a record is locked by this page.
+        subscribe(name) {
+            if (name === this.channel) {
+                return
+            }
+
+            this.unsubscribe()
+
+            if (! name) {
+                return
+            }
+
+            const join = () => {
+                if (! window.Echo) {
+                    return false
+                }
+
+                this.channel = name
+                window.Echo.private(name).listen('.' + @js(RecordLockChanged::NAME), () => $wire.recordLockHeartbeat())
+
+                return true
+            }
+
+            // Echo may be created after this view (the plugin's hook runs at the end of the body).
+            if (! join()) {
+                this.onEcho = () => join()
+                window.addEventListener('EchoLoaded', this.onEcho, { once: true })
+            }
+        },
+        unsubscribe() {
+            if (this.onEcho) {
+                window.removeEventListener('EchoLoaded', this.onEcho)
+                this.onEcho = null
+            }
+
+            if (this.channel && window.Echo) {
+                window.Echo.leave(this.channel)
+            }
+
+            this.channel = null
+        },
         init() {
             this.leave = () => this.release()
             window.addEventListener('pagehide', this.leave)
             document.addEventListener('livewire:navigating', this.leave)
         },
         destroy() {
+            this.unsubscribe()
             window.removeEventListener('pagehide', this.leave)
             document.removeEventListener('livewire:navigating', this.leave)
         },
@@ -65,6 +110,7 @@
         },
     }"
     x-effect="
+        subscribe($wire.recordLockChannel)
         const blocked = $wire.recordLockBlocked
         $nextTick(() => $dispatch(blocked ? 'open-modal' : 'close-modal', { id: 'record-lock-notice' }))
     "

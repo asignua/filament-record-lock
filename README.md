@@ -217,9 +217,58 @@ RECORD_LOCK_BROADCAST_CONNECTION=   # optional: another connection than the defa
   user must be allowed to edit it - `Resource::canEdit()` of the panel that has the plugin, or the model's `update` policy
   when no resource edits it. Unknown types and missing records are refused. `/broadcasting/auth` is registered with the
   panel's guard when the app has not (`realtime.register_auth_route`).
-- **Echo.** The page listens with `echo-private:`, so `window.Echo` must exist (configure it as the Filament docs describe
-  for broadcasting, or in your app JS). This plugin does not bring its own Echo. Without Echo the listener is simply idle
-  and the heartbeat works as before.
+- **Subscription.** The lock notice (observer view) subscribes with `window.Echo.private(...)` while this page holds - or
+  waits for - a record, and unsubscribes when the modal closes or the page is left. It does this from JavaScript, not
+  through a Livewire `echo-private:` listener: Livewire registers listeners only when a component is mounted, and a
+  modal-edit page (`UsesSimpleResourceLock`) has no record - and no lock - at mount.
+
+### Echo: who loads it
+
+`realtime.echo` (`RECORD_LOCK_ECHO`) - the same keys, semantics and default as in `filament-chat` and `filament-kanban`:
+
+| `RECORD_LOCK_ECHO` | Meaning |
+|---|---|
+| `plugin` (default) | the plugin brings Echo itself, reusing the Echo + pusher-js that Filament already ships (`window.EchoFactory`), configured from the broadcasting connection and `realtime.client`. Nothing else to install. |
+| `filament` | Filament's own `filament.broadcasting.echo` config |
+| `host` | your app already loads `window.Echo` (your Vite bundle) |
+
+The Echo script is rendered (panel `SCRIPTS_AFTER` hook) only when real time is on, the mode is `plugin`, the user is
+signed in and the panel has this plugin. **Echo is initialised once per page:** the script returns at once if
+`window.Echo` already exists, so installing this plugin together with `filament-chat` and/or `filament-kanban`
+(each in `plugin` mode) is safe - the first one to run creates the instance, the others reuse it. Filament's
+`filament.broadcasting.echo` and a host Echo are respected the same way.
+
+```bash
+php artisan install:broadcasting --reverb   # Reverb + the Echo packages; not needed for plugin mode itself
+php artisan reverb:start
+```
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+RECORD_LOCK_REALTIME=true
+# where the BROWSER connects, when it differs from where PHP publishes
+RECORD_LOCK_WS_HOST=ws.example.com   # empty = the page's host
+RECORD_LOCK_WS_PORT=8080             # empty = 443 on https, 80 on http
+RECORD_LOCK_WS_SCHEME=https          # empty = the page's protocol
+```
+
+- **Local, no Docker:** `reverb:start` on 8080 -> `RECORD_LOCK_WS_PORT=8080`.
+- **Docker / Sail:** PHP publishes to the service (`REVERB_HOST=reverb`), the browser to the published port.
+- **Production behind nginx:** proxy the websocket on the same host and leave the three variables empty:
+
+  ```nginx
+  location ^~ /app/ {
+      proxy_pass http://reverb:8080;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_read_timeout 60s;
+  }
+  ```
+
+Pusher Channels / Ably-compatible connections work the same way (`BROADCAST_CONNECTION=pusher`; the cluster is read
+from the connection's `options.cluster`). Without a working socket nothing breaks: the heartbeat still runs.
 
 ## Gates
 

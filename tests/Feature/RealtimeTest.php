@@ -217,45 +217,51 @@ class RealtimeTest extends TestCase
         $this->assertFalse(Realtime::authorize($this->noah, '!!!', $key));
     }
 
-    public function test_the_page_listens_only_when_enabled_and_the_listener_runs_the_heartbeat(): void
+    public function test_the_page_exposes_its_channel_only_when_enabled(): void
     {
-        $event = Realtime::listener($this->article);
-
         config(['filament-record-lock.realtime.enabled' => false]);
-        $page = $this->open($this->emma);
-        $this->assertArrayNotHasKey($event, $this->listenersOf($page));
+        $this->open($this->emma)->assertSet('recordLockChannel', null);
 
+        $this->on();
+        $channel = Realtime::channelOf($this->article);
+        $this->open($this->emma)->assertSet('recordLockChannel', $channel);
+        $this->assertSame(Realtime::channelFor(Article::class, (string) $this->article->getKey()), $channel);
+
+        // Blocked pages subscribe too: they are the ones waiting for the push.
+        $this->open($this->noah)->assertSet('recordLockBlocked', true)->assertSet('recordLockChannel', $channel);
+    }
+
+    public function test_the_observer_subscribes_via_echo_and_runs_the_heartbeat(): void
+    {
+        $this->on();
+
+        $html = html_entity_decode($this->open($this->emma)->html());
+
+        $this->assertStringContainsString('subscribe($wire.recordLockChannel)', $html);
+        $this->assertStringContainsString('filament-record-lock.changed', $html);
+        $this->assertStringContainsString('$wire.recordLockHeartbeat()', $html);
+    }
+
+    public function test_a_waiting_page_reloads_on_heartbeat_after_release(): void
+    {
         $this->on();
         $this->open($this->emma);
         $waiting = $this->open($this->noah)->assertSet('recordLockBlocked', true);
-        $this->assertSame('recordLockHeartbeat', $this->listenersOf($waiting)[$event] ?? null);
 
-        // The holder leaves; the pushed event makes the waiting page reload at once (no poll).
+        // The holder leaves; the pushed event makes the page call the heartbeat (no poll).
         app(RecordLocker::class)->forceRelease($this->article);
 
-        $waiting->dispatch($event)->assertSet('recordLockBlocked', false)->assertNotSet('recordLockId', null);
+        $waiting->call('recordLockHeartbeat')->assertSet('recordLockBlocked', false)->assertNotSet('recordLockId', null);
     }
 
     public function test_a_pushed_takeover_blocks_the_old_holder_at_once(): void
     {
         $this->on();
-        $event = Realtime::listener($this->article);
         $old = $this->open($this->emma);
 
         app(RecordLocker::class)->takeOver($this->article, $this->noah, 'other');
 
-        $old->dispatch($event)->assertSet('recordLockBlocked', true)->assertSet('recordLockReason', 'taken_over');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function listenersOf(Testable $page): array
-    {
-        $component = $page->instance();
-        $method = new \ReflectionMethod($component, 'getListeners');
-
-        return $method->invoke($component);
+        $old->call('recordLockHeartbeat')->assertSet('recordLockBlocked', true)->assertSet('recordLockReason', 'taken_over');
     }
 
     private function segment(string $value): string

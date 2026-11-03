@@ -290,7 +290,7 @@ class EditPageTest extends TestCase
 
         config(['filament-record-lock.polling.enabled' => false]);
 
-        $this->open($this->emma)->assertDontSeeHtml('recordLockHeartbeat');
+        $this->open($this->emma)->assertDontSeeHtml('wire:poll');
     }
 
     public function test_the_plugin_options_override_the_config(): void
