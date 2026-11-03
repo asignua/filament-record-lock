@@ -187,6 +187,40 @@ The config file also has `table` / `connection` (the migration follows them), `l
 `schedule` (`record-lock:prune` every 10 minutes; `enabled => false` to schedule it yourself). Expired locks never block
 anybody, pruning only keeps the table small.
 
+## Real-time (optional)
+
+The heartbeat renews the lock and stays exactly as it is - a socket cannot replace it. With broadcasting switched on,
+the plugin additionally **pushes** "this record's lock was released / taken over", so a waiting page (or the page that
+just lost its lock) reacts at once instead of at its next poll (up to 15 s).
+
+| `RECORD_LOCK_REALTIME` | Behaviour |
+|---|---|
+| `false` | no events, no listeners - behaviour identical to v1.0 |
+| `true` | push on release and takeover |
+| unset (`null`) | on when `broadcasting.default` is `reverb`, `pusher` or `ably` |
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+RECORD_LOCK_REALTIME=true
+RECORD_LOCK_BROADCAST_CONNECTION=   # optional: another connection than the default one
+```
+
+- **Event.** `Events\RecordLockChanged` (`ShouldBroadcastNow` + `ShouldDispatchAfterCommit`, no queue worker needed) is
+  dispatched next to the existing `RecordLockTakenOver`, which is untouched. It fires when a lock row is actually removed
+  (page save/leave, the leave beacon, `unlock()`, "Release lock" in the manager) and on a takeover from another holder.
+  Locks that merely expire (`record-lock:prune`) stay silent: the waiting page's heartbeat still notices them.
+- **Payload.** `type` (morph class), `key`, `reason` (`released` / `taken_over`) and `holder` (user id, or null).
+  The page does not trust it: it just runs the same `recordLockHeartbeat` it polls with, so all takeover / reload logic
+  stays in one place.
+- **Channel.** A private channel per record, `filament-record-lock.{type}.{key}`; both segments are base64url so any class
+  name or key is a valid channel name. Authorisation is registered by the plugin: the model must use `HasLocks` and the
+  user must be allowed to edit it - `Resource::canEdit()` of the panel that has the plugin, or the model's `update` policy
+  when no resource edits it. Unknown types and missing records are refused. `/broadcasting/auth` is registered with the
+  panel's guard when the app has not (`realtime.register_auth_route`).
+- **Echo.** The page listens with `echo-private:`, so `window.Echo` must exist (configure it as the Filament docs describe
+  for broadcasting, or in your app JS). This plugin does not bring its own Echo. Without Echo the listener is simply idle
+  and the heartbeat works as before.
+
 ## Gates
 
 | Ability | Default | Decides |

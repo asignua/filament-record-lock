@@ -79,6 +79,19 @@ return [
     ],
 
     /*
+     * Real time (optional): push "the lock was released / taken over" to the waiting page over a broadcasting
+     * socket so it reacts at once instead of at its next heartbeat. The heartbeat itself stays (it renews the lock).
+     * `enabled`: true / false, or null = on when `broadcasting.default` is reverb, pusher or ably.
+     * `connection`: a broadcasting connection other than the default one.
+     */
+    'realtime' => [
+        'enabled' => env('RECORD_LOCK_REALTIME'),
+        'connection' => env('RECORD_LOCK_BROADCAST_CONNECTION'),
+        // Register /broadcasting/auth when the app has not.
+        'register_auth_route' => true,
+    ],
+
+    /*
      * Registers `record-lock:prune` in the application schedule. Set `enabled` to false to schedule it yourself.
      */
     'schedule' => [

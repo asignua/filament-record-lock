@@ -2,6 +2,12 @@
 
 All notable changes to `asignua/filament-record-lock` are documented here.
 
+## v1.1.0 - unreleased
+- Optional real-time reaction (`realtime.enabled` / `RECORD_LOCK_REALTIME`, auto-on for reverb / pusher / ably): a private
+  channel per record, a `RecordLockChanged` broadcast when a lock is released or taken over, and an `echo-private:`
+  listener on the page that runs the existing heartbeat at once. The heartbeat is unchanged; disabled means no behaviour
+  change. See "Real-time (optional)" in the README.
+
 ## v1.0.0 - 2026-10-25
 - Pessimistic record locking for Filament 5: `HasLocks` model trait, `UsesResourceLock` for Edit pages and
   `UsesSimpleResourceLock` for modal edits, a heartbeat that renews the lock, release on leave through

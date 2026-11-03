@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentRecordLock\Support;
 
+use Asignua\FilamentRecordLock\Events\RecordLockChanged;
 use Asignua\FilamentRecordLock\Events\RecordLockTakenOver;
 use Asignua\FilamentRecordLock\Models\RecordLock;
 use Asignua\FilamentRecordLock\RecordLockPlugin;
@@ -156,12 +157,18 @@ class RecordLocker
     {
         $model = $this->lockModel();
 
-        return $model::query()
+        $released = $model::query()
             ->where('lockable_type', $record->getMorphClass())
             ->where('lockable_id', (string) $record->getKey())
             ->where('user_id', LockUsers::key($user))
             ->when($holder !== null, fn ($q) => $q->where('holder', $holder))
             ->delete() > 0;
+
+        if ($released) {
+            Realtime::announce($record, RecordLockChanged::REASON_RELEASED);
+        }
+
+        return $released;
     }
 
     /**
@@ -171,10 +178,16 @@ class RecordLocker
     {
         $model = $this->lockModel();
 
-        return $model::query()
+        $released = $model::query()
             ->where('lockable_type', $record->getMorphClass())
             ->where('lockable_id', (string) $record->getKey())
             ->delete() > 0;
+
+        if ($released) {
+            Realtime::announce($record, RecordLockChanged::REASON_RELEASED);
+        }
+
+        return $released;
     }
 
     /**
@@ -214,6 +227,7 @@ class RecordLocker
             if ($lock !== null) {
                 if ($previous !== null && $previous->user_id !== $userKey) {
                     event(new RecordLockTakenOver($record, $previousUser, $user));
+                    Realtime::announce($record, RecordLockChanged::REASON_TAKEN_OVER, $userKey);
                 }
 
                 return $lock;

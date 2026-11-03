@@ -6,6 +6,7 @@ namespace Asignua\FilamentRecordLock\Resources\Pages\Concerns;
 
 use Asignua\FilamentRecordLock\RecordLockPlugin;
 use Asignua\FilamentRecordLock\Support\LockUsers;
+use Asignua\FilamentRecordLock\Support\Realtime;
 use Asignua\FilamentRecordLock\Support\RecordLocker;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -79,6 +80,27 @@ trait UsesLocks
     public function getRenderHookScopes(): array
     {
         return [...parent::getRenderHookScopes(), RecordLockPlugin::HOOK_SCOPE];
+    }
+
+    /**
+     * Real time (optional): when the lock of the open record is released or taken over, the server pushes an event and
+     * the page runs the heartbeat at once - all takeover / reload logic stays in that one method.
+     *
+     * @return array<string, string>
+     */
+    protected function getListeners(): array
+    {
+        $listeners = parent::getListeners();
+
+        if ($this->recordLockActive && Realtime::enabled()) {
+            $record = $this->recordLockRecord();
+
+            if ($record !== null) {
+                $listeners[Realtime::listener($record)] = 'recordLockHeartbeat';
+            }
+        }
+
+        return $listeners;
     }
 
     protected function recordLockLocker(): RecordLocker
