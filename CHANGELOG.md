@@ -5,6 +5,7 @@ All notable changes to `asignua/filament-record-lock` are documented here.
 ## v1.2.0 - 2026-11-10
 
 - Requires Filament ^5.11.2; no deprecated Filament API was in use, so no code changes.
+- Laravel 13 deprecations: the workbench panel uses `PreventRequestForgery` (with a `VerifyCsrfToken` fallback for Laravel 12). Laravel 12 is still supported.
 
 ## v1.1.0 - 2026-11-03
 - Optional real-time reaction (`realtime.enabled` / `RECORD_LOCK_REALTIME`, auto-on for reverb / pusher / ably): a private
